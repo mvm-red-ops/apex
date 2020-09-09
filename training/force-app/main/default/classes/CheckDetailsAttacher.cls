@@ -1,6 +1,6 @@
 public class CheckDetailsAttacher {
     
-    
+   
     public static List<CheckDetail__c> attachCheckDetails(List<CheckDetail__c> checkDetails, Date startDate, Date endDate, String network){
         List<CheckDetail__C> checkDetailsToUpdate = new List<CheckDetail__C>();        
         List<Schedules__C> schedulePool = getSchedules(startDate, endDate, network);
@@ -12,8 +12,6 @@ public class CheckDetailsAttacher {
         For(Integer i = 0; i < schedulePool.size(); i++){
             Schedules__c current = schedulePool[i];
             String key = current.Week__c + '-' + current.long_form__c;
-            //8/12/2020 A-4:00
-            //cancelled sold
 
             if(schedMap.containsKey(key)){
                 schedMap.get(key).add(current);
@@ -35,19 +33,16 @@ public class CheckDetailsAttacher {
                 System.debug('schedule, current ');
                 For(Integer j = 0; j < matchList.size(); j++){
                     Schedules__C sched = matchList[j];
-                    
                     System.debug(sched);
 					System.debug(current);
-                    System.debug(sched.rate__c);
+                      System.debug(sched.rate__c);
 					System.debug(current.check_Amount__C);
-                    
                     current.Schedule__c = sched.id;
                     if(sched.rate__c == Math.abs(current.check_Amount__C)){
                         current.Unmatched_Reason__C = '';
                      	checkDetailsToUpdate.add(current);
                     } else {
                         current.Unmatched_Reason__C = 'Mismatch rate on Schedule ';
-                        //checkDetailsToUpdate.add(current);
                         unmatchedCheckDetails.add(current);
                     }
                 }
@@ -60,48 +55,16 @@ public class CheckDetailsAttacher {
         
        System.debug('unmatchedCheckDetails');
        System.debug(unmatchedCheckDetails);
-       System.debug(unmatchedCheckDetails.size());
        System.debug('checkDetailsToUpdate');
        System.debug(checkDetailsToUpdate);
-       System.debug(checkDetailsToUpdate.size());
         
-    	System.debug('check detail obj to update start:');
         For(Integer i = 0; i <checkDetailsToUpdate.size();i++ ){
+            System.debug('check detail obj to update:');
             System.debug(checkDetailsToUpdate[i]);
         }
         if(checkDetailsToUpdate.size() >= 1){
-			//insert checkDetailsToUpdate; 
+			insert checkDetailsToUpdate; 
         }
-      	System.debug('check detail obj to update end:');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-      	System.debug('--------------------------------');
-
         
 		return unmatchedCheckDetails;
     }

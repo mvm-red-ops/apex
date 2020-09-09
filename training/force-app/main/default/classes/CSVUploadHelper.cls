@@ -95,7 +95,6 @@ public with sharing class CSVUploadHelper {
         //declare map variable which holds unique key with list of record values
         Map<String, List<String>> csvMap = new Map<String, List<String>>();
         
-       
         //row data
         List<List<String>> recordData = new List<List<String>>();
         
@@ -104,7 +103,9 @@ public with sharing class CSVUploadHelper {
             
             //set variable for current row
             List<String> current = CSVData[i].split(',');
-   
+            System.debug('current');
+            System.debug(current);
+            System.debug(current[weekIdx]);
             String year;
             String month;
             String day;
@@ -244,12 +245,65 @@ public with sharing class CSVUploadHelper {
             //set variable for current row
             List<String> current = CSVData[i].split(',');
    
-
-            //format the week field 
-            List<String> formattedDates =  dateParser(current[airDateIdx]);
+            String year;
+            String month;
+            String day;
             
-            current[airDateIdx] = formattedDates[0];
-            String strWeek = formattedDates[1];
+            //format the week field 
+            try{
+                List<String> dateVals = current[airDateIdx].split('/');
+                                  System.debug('dateVals');
+                                  System.debug(dateVals);
+
+                if(dateVals[2].length() ==2){
+                	year = '20' + dateVals[2];
+                } else{
+                  	year = dateVals[2];
+                }
+                month = dateVals[0];
+                day = dateVals[1];
+                   
+                If(month.length() == 1){
+                    month = '0' + month;
+                }
+                If(day.length() == 1){
+                    day = '0' + day;
+                }    
+                String newDate = year + '-' + month + '-' + day;
+                current[airDateIdx] = newDate;
+
+            }
+            
+            catch(Exception e){
+                System.debug('likely out of bounds error:');
+                System.debug(current);
+                AuraHandledException ex = new AuraHandledException('The indexes arent lining up properly. Please remove any commas in cell values of the CSV.');
+                ex.setMessage('Likely commas in cells.');
+                throw ex; 
+            }
+            
+            //check date in acceptable range 
+            if(Integer.valueOf(year) < System.Today().year() - 1 || Integer.valueOf(year) > System.Today().year() + 1){
+                System.debug('year out of range:');
+                System.debug(year);
+                AuraHandledException ex = new AuraHandledException('The year must be in between last year and next year. Please contact your admin.');
+                ex.setMessage('Year out of range.');
+                throw ex; 
+            }
+            
+			//check week matches regular expression for SF dates
+            String strWeek = month.trim() + '/' + day.trim() + '/' + year.trim();
+            String weekRegex = '^(0[1-9]|1[012])[/](0[1-9]|[12][0-9]|3[01])[/](2019||2020||2021)$';
+            Pattern weekPattern = Pattern.compile(weekRegex);
+            Matcher weekMatcher = weekPattern.matcher(strWeek);
+            Boolean weekMatch = weekMatcher.matches();
+            if(!weekMatch){
+               	System.debug('week format error:');
+                System.debug(strWeek);
+                AuraHandledException ex = new AuraHandledException('The Week field could not be formatted correctly. Please make sure it is in mm/dd/yyyy format.');
+                ex.setMessage('Unformattable week field.');
+                throw ex; 
+            }
             
 
             String rate = current[checkAmtIdx];
@@ -264,6 +318,7 @@ public with sharing class CSVUploadHelper {
                     }
         
             longform = ampm + basetime;
+            System.debug(longform);
             String longformRegex = '^[A,P]-[0-9]{1}[:.,-][0,3]{1}[0]{1}?$';
             Pattern LongformPattern = Pattern.compile(longformRegex);
             Matcher LongformMatcher = LongformPattern.matcher(longform);
@@ -358,6 +413,8 @@ public with sharing class CSVUploadHelper {
             }
         }
         
+        System.debug('cleaned');
+        System.debug(cleanedRows);
         
         if(cleanedRows.size() == 0){
             FormattingException formattingError = new FormattingException('Hey! Looks like the file you uploaded doesnt contain any data! If this isnt true, please reach out to your admin!');
@@ -365,8 +422,6 @@ public with sharing class CSVUploadHelper {
         }
         return cleanedRows;
      }
-                                                    
-                                                    
     
     //not a generalizable method
     public static void finalFormatCheck(List<Map<String, Map<String, List<String>>>> scheds){
@@ -408,94 +463,8 @@ public with sharing class CSVUploadHelper {
    
     }
 
-                                                    
-                                                    
+
     
 
-
-                                                    
-    public static List<String> dateParser(String dateString){
-            String year;
-            String month;
-            String day;
-            List<String> dateVals;
-            List<String> results = new List<String>();
-
-            try{
-                //if date is formatted like 04-04-2020 or 04-04-20
-                if(dateString.contains('-')){
-                    //datevals becomes [04,04,2020] or [04,04,20]
-                    dateVals = dateString.split('-');
-
-                 //if date is formatted like 04/20/2020 or  4/20/20
-                } else if (dateString.contains('/')){
-                    dateVals = dateString.split('/');
-                  
-                } else {
-                    FormattingException dateFormatError = new FormattingException('Sorry! The date is not formatted in a recognizable way.');
-                     throw dateFormatError;
-                }
-                
-                
-                //convert 2 digit year to 4 digits
-                if(dateVals[2].length() ==2){
-                    year = '20' + dateVals[2];
-                } else if(dateVals[2].length() == 4){
-                    year = dateVals[2].trim();
-                } else {
-                    //year is neither 2 or 4 digits
-                    FormattingException yearFormatError = new FormattingException('Sorry! The year in the date is not a 2 or 4 digit year.');
-                    throw yearFormatError;
-                }
-                month = dateVals[0].trim();
-                day = dateVals[1].trim();
-                
-                If(month.length() == 1){
-                    month = '0' + month;
-                }
-                If(day.length() == 1){
-                    day = '0' + day;
-                }    
-                
-                //check date in acceptable range 
-                if(Integer.valueOf(year) < System.Today().year() - 1 || Integer.valueOf(year) > System.Today().year() + 1){
-                    System.debug('year out of range:');
-                    System.debug(year);
-                    AuraHandledException ex = new AuraHandledException('The year must be in between last year and next year. Please contact your admin.');
-                    ex.setMessage('Year out of range.');
-                    throw ex; 
-                }
-
-                
-                //check week matches regular expression for SF dates
-                String strWeek = month.trim() + '/' + day.trim() + '/' + year.trim();
-                String weekRegex = '^(0[1-9]|1[012])[/](0[1-9]|[12][0-9]|3[01])[/](2019||2020||2021)$';
-                Pattern weekPattern = Pattern.compile(weekRegex);
-                Matcher weekMatcher = weekPattern.matcher(strWeek);
-                Boolean weekMatch = weekMatcher.matches();
-                if(!weekMatch){
-                    System.debug('week format error:');
-                    System.debug(strWeek);
-                    AuraHandledException ex = new AuraHandledException('The Week field could not be formatted correctly. Please make sure it is in mm/dd/yyyy format.');
-                    ex.setMessage('Unformattable week field.');
-                    throw ex; 
-                }
-                
-                String newDate = year + '-' + month + '-' + day;
-
-                results.add(newDate);
-                results.add(strWeek);
-                return results;
-            }
-            
-            catch(Exception e){
-                AuraHandledException ex = new AuraHandledException('The indexes arent lining up properly. Please remove any commas in cell values of the CSV.');
-                ex.setMessage('Likely commas in cells.');
-                throw ex; 
-            }        
         
-
-    }
-    
-  
 }

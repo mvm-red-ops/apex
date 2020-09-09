@@ -76,7 +76,11 @@ public class CheckUploader {
             for(String key : CSVDataMap.keyset()){
  
                List<List<String>>  recordData = CSVDataMap.get(key);
-               checkDate = formatDate(recordData[0][checkDateIdx]);
+                System.debug('recordData');
+                System.debug(recordData);
+                System.debug(recordData[0]);
+                System.debug(recordData[0][checkDateIdx]);
+               	checkDate = formatDate(recordData[0][checkDateIdx]);
                 
                break;
             }
@@ -99,26 +103,30 @@ public class CheckUploader {
             For(Integer i = 0; i < cleanCSVData.size(); i++){
                 List<String> current = cleanCSVData[i].split(',');
                 CheckDetail__C cd = new CheckDetail__c();
+                    System.debug('formatting air date...');
                 cd.Air_Date__c = formatDate(current[airDateIdx]);
+                	System.debug('check detail');
                 if(cd.Air_Date__c < queryStart){
                     queryStart = cd.Air_Date__c;
                 }
                 if(cd.Air_Date__c > queryEnd){
                     queryEnd = cd.Air_Date__c;
                 }
+                                	System.debug(cd);
 
-                cd.Check_Amount__c = (Decimal.valueOf(current[checkAmtIdx])/.85).setScale(2);
-
+                cd.Check_Amount__c = Decimal.valueOf(current[checkAmtIdx]);
                 cd.Item_Ad_ID__c = current[adIdIdx];
                 //fix air time
                 //should it be modeled after long form?
                 cd.Air_Time__c = convertAirTimeToLongForm(current[airTimeIdx]);
                 cd.Check__c = check.id;
-                cd.CheckId__c = current[idIdx];
+                cd.Check_Detail_Id__c = current[idIdx];
+                                	System.debug(cd);
 
                 String debitCheck = current[dbtChkIdx];
                 if(debitCheck.length() > 2){
                     cd.Debit_Check__c = current[dbtChkIdx];
+                    System.debug('formatting debit date...');
                     cd.Debit_Date__c = formatDate(current[dbtDateIdx]);
                 }
                 checkDetails.add(cd);
