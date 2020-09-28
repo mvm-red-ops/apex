@@ -1,218 +1,230 @@
 @isTest 
-public class CheckUploaderTest {
-    
-    @IsTest
-    static void testSingleScheduleMatch() {
-       	Date schedDate = Date.parse('05/01/2020');
-        String longForm = 'A-3:00';
-        String str = 'entity,refnum,station,airdate,airtime,itemidadd,checkno,checkamt,checkdate,debit_chck,debit_date,vdrategr,id\n MARMYSTERY,83017927,MYSTERY,5-1-20, 03:00 AM,BLINK A 199 V1,1024384,100,10-Apr-20,0, -   -,100,630324063';       
+public class CSVUploadHelperTest {
+        
+    @testSetup static void setup() {
+        String str = 'Buyer,Show Title,Market,Station,Payee,Phone #,Day,Date,Time,Gross,PW Contact,ISCI #\n CH,KERANIQUE V119,DIGINET,MYSTERY,MARMYSTERY,800-460-7415,TU,5/1/20,3:00,1100,Brett LaFlamme,1003510197H';       
         String[] csvFileLines;
         Blob csvFileBody;
         
-        Test.startTest();
-        	//create csv
-            csvFileBody = Blob.valueOf(str);
-            String csvAsString = csvFileBody.toString();
-            csvFileLines = csvAsString.split('\n'); 
-            ContentVersion contentVersionInsert = new ContentVersion(
-                    Title = 'CSV Test',
-                    PathOnClient = 'Test.csv',
-                    VersionData = csvFileBody,
-                    IsMajorVersion = true
-            );
-        	insert contentVersionInsert;
-
-            List<ContentDocument> documents = [SELECT Id, Title, LatestPublishedVersionId FROM ContentDocument];
-            Id csvId = documents[0].id;
-            ContentVersion testDocId = [SELECT Id, VersionData FROM ContentVersion WHERE ContentDocumentId =:documents[0].id][0];
-
-        	//create program, deal and schedule
-            Programs__c program = TestDataFactory.createProgram('CourtTv Mystery PP', true);
-            Deal__c deal1 = createAvailableDeal(program.Id);
-        	Account testAcc = createAccount();
-        	Contact testCon = createContact(testAcc.Id);
-            Schedules__c availabilitySchedule = createAvailabilitySchedule(deal1.Id, schedDate, longForm);
-            insert availabilitySchedule;
-            Deal__c deal2 = createAgencyDeal(program.Id);
-       		deal2.Contact__c = testCon.id;
-        	update deal2;
-       
-            Schedules__c soldSchedule = createSoldSchedule(deal2.Id, schedDate, longForm, 100);
-            insert soldSchedule;
-        	
-
-            //run check uploader  
-            CheckUploader.readCSV(csvId);
-        	List<CheckDetail__C> checkList = [SELECT id FROM CheckDetail__c WHERE Schedule__C != null];
-			System.assertEquals(1, checkList.size());
-        Test.stopTest();
+        //create working buy analysis
+        csvFileBody = Blob.valueOf(str);
+        String csvAsString = csvFileBody.toString();
+        csvFileLines = csvAsString.split('\n'); 
+        ContentVersion contentVersionInsert = new ContentVersion(
+            Title = 'Buy Analysis',
+            PathOnClient = 'Test.csv',
+            VersionData = csvFileBody,
+            IsMajorVersion = true
+        );
+        insert contentVersionInsert;
         
-        //create test csv
-    }
-    
-    //test no match
-    @IsTest
-    static void testNoMatch() {
-       	Date schedDate = Date.parse('05/03/2020');
-        String longForm = 'A-3:00';
-        String str = 'entity,refnum,station,airdate,airtime,itemidadd,checkno,checkamt,checkdate,debit_chck,debit_date,vdrategr,id\n MARMYSTERY,83017927,MYSTERY,5-1-20, 03:00 AM,BLINK A 199 V1,1024384,100,10-Apr-20,0, -   -,100,630324063';       
-        String[] csvFileLines;
-        Blob csvFileBody;
+                
+        //create bad format week buy analysis
+        String strBadDate = 'Buyer,Show Title,Market,Station,Payee,Phone #,Day,Date,Time,Gross,PW Contact,ISCI #\n CH,KERANIQUE V119,DIGINET,MYSTERY,MARMYSTERY,800-460-7415,TU,2020/5/1,3:00,1100,Brett LaFlamme,1003510197H';       
+        String[] csvFileLinesBadDate;
+        Blob csvFileBodyBadDate;        
         
-        Test.startTest();
-        	//create csv
-            csvFileBody = Blob.valueOf(str);
-            String csvAsString = csvFileBody.toString();
-            csvFileLines = csvAsString.split('\n'); 
-            ContentVersion contentVersionInsert = new ContentVersion(
-                    Title = 'CSV Test',
-                    PathOnClient = 'Test.csv',
-                    VersionData = csvFileBody,
-                    IsMajorVersion = true
-            );
-        	insert contentVersionInsert;
-
-            List<ContentDocument> documents = [SELECT Id, Title, LatestPublishedVersionId FROM ContentDocument];
-            Id csvId = documents[0].id;
-            ContentVersion testDocId = [SELECT Id, VersionData FROM ContentVersion WHERE ContentDocumentId =:documents[0].id][0];
-
-        	//create program, deal and schedule
-            Programs__c program = TestDataFactory.createProgram('CourtTv Mystery PP', true);
-            Deal__c deal1 = createAvailableDeal(program.Id);
-        	Account testAcc = createAccount();
-        	Contact testCon = createContact(testAcc.Id);
-            Schedules__c availabilitySchedule = createAvailabilitySchedule(deal1.Id, schedDate, longForm);
-            insert availabilitySchedule;
-            Deal__c deal2 = createAgencyDeal(program.Id);
-       		deal2.Contact__c = testCon.id;
-        	update deal2;
-       
-            Schedules__c soldSchedule = createSoldSchedule(deal2.Id, schedDate, longForm, 100);
-            insert soldSchedule;
-        	
-
-            //run check uploader  
-            CheckUploader.readCSV(csvId);
-        	List<CheckDetail__C> checkList = [SELECT id FROM CheckDetail__c WHERE Schedule__C != null];
-			System.assertEquals(0, checkList.size());
-        Test.stopTest();
+        csvFileBodyBadDate = Blob.valueOf(strBadDate);
+        String csvAsStringBadDate = csvFileBodyBadDate.toString();
+        csvFileLinesBadDate = csvAsStringBadDate.split('\n'); 
+        ContentVersion badDate = new ContentVersion(
+            Title = 'Bad Date',
+            PathOnClient = 'Test.csv',
+            VersionData = csvFileBodyBadDate,
+            IsMajorVersion = true
+        );
+        insert badDate;
+        
+                
+        //create commas in cell buy analysis
+        String strCommas = 'Buyer,Show Title,Market,Station,Payee,Phone #,Day,Date,Time,Gross,PW Contact,ISCI #\n CH,KER,ANIQUE V119,DIGINET,MYSTERY,MARMYSTERY,800-460-7415,TU,2020/5/1,3:00,1100,Brett LaFlamme,1003510197H';       
+        String[] csvFileLinesCommas;
+        Blob csvFileBodyCommas;        
+        
+        csvFileBodyCommas = Blob.valueOf(strCommas);
+        String csvAsStringCommas = csvFileBodyCommas.toString();
+        csvFileLinesCommas = csvAsStringCommas.split('\n'); 
+        ContentVersion commasCSV = new ContentVersion(
+            Title = 'Commas',
+            PathOnClient = 'Test.csv',
+            VersionData = csvFileBodyCommas,
+            IsMajorVersion = true
+        );
+        insert commasCSV;
+        
+        
+        //create check csv
+        String checkStr = 'entity,refnum,station,airdate,airtime,itemidadd,checkno,checkamt,checkdate,debit_chck,debit_date,vdrategr,id\n MARMYSTERY,83017927,MYSTERY,5-1-20, 03:00 AM,BLINK A 199 V1,1024384,100,10-Apr-20,0, -   -,100,630324063';       
+        String[] checkFileLines;
+        Blob checkFileBody;
+        
+        //create csv
+        checkFileBody = Blob.valueOf(checkStr);
+        String checkCsvAsString = checkFileBody.toString();
+        checkFileLines = checkCsvAsString.split('\n'); 
+        ContentVersion checkContentInsert = new ContentVersion(
+            Title = 'Check CSV',
+            PathOnClient = 'Test.csv',
+            VersionData = checkFileBody,
+            IsMajorVersion = true
+        );
+        insert checkContentInsert;
         
     }
-
-        
-
-    //test multiple matches
-    @IsTest
-    static void testMultipleMatches() {
-       	Date schedDate = Date.parse('05/01/2020');
-        String longForm = 'A-3:00';
-        String str = 'entity,refnum,station,airdate,airtime,itemidadd,checkno,checkamt,checkdate,debit_chck,debit_date,vdrategr,id\n MARMYSTERY,83017927,MYSTERY,5-1-20, 03:00 AM,BLINK A 199 V1,1024384,100,10-Apr-20,0, -   -,100,630324063\n MARMYSTERY,83017927,MYSTERY,5-1-20, 03:00 AM,BLINK A 199 V1,1024384,-100,10-Apr-20,0, -   -,100,630324063';       
-        String[] csvFileLines;
-        Blob csvFileBody;
-        
-        Test.startTest();
-        	//create csv
-            csvFileBody = Blob.valueOf(str);
-            String csvAsString = csvFileBody.toString();
-            csvFileLines = csvAsString.split('\n'); 
-            ContentVersion contentVersionInsert = new ContentVersion(
-                    Title = 'CSV Test',
-                    PathOnClient = 'Test.csv',
-                    VersionData = csvFileBody,
-                    IsMajorVersion = true
-            );
-        	insert contentVersionInsert;
-
-            List<ContentDocument> documents = [SELECT Id, Title, LatestPublishedVersionId FROM ContentDocument];
-            Id csvId = documents[0].id;
-            ContentVersion testDocId = [SELECT Id, VersionData FROM ContentVersion WHERE ContentDocumentId =:documents[0].id][0];
-
-        	//create program, deal and schedule
-            Programs__c program = TestDataFactory.createProgram('CourtTv Mystery PP', true);
-            Deal__c deal1 = createAvailableDeal(program.Id);
-        	Account testAcc = createAccount();
-        	Contact testCon = createContact(testAcc.Id);
-            Schedules__c availabilitySchedule = createAvailabilitySchedule(deal1.Id, schedDate, longForm);
-            insert availabilitySchedule;
-            Deal__c deal2 = createAgencyDeal(program.Id);
-       		deal2.Contact__c = testCon.id;
-        	update deal2;
-       
-            Schedules__c soldSchedule = createSoldSchedule(deal2.Id, schedDate, longForm, 100);
-            insert soldSchedule;
-        	
-
-            //run check uploader  
-            CheckUploader.readCSV(csvId);
-        	List<CheckDetail__C> checkList = [SELECT id FROM CheckDetail__c WHERE Schedule__C != null];
-        System.debug('checkList');
-        System.debug(checkList);
-			System.assertEquals(2, checkList.size());
-        Test.stopTest();
-        
-    }
-    
-    private static Deal__c createAvailableDeal(Id programId) {
-        Deal__c deal = TestDataFactory.createDeal('Availability', programId, 'Paid Programming', true);
-        return deal;
-    }
-
-    private static Deal__c createAgencyDeal(Id programId) {
-        Deal__c deal = TestDataFactory.createDeal('Long Form', programId, 'Paid Programming', true);
-        return deal;
-    }
-
-    private static Schedules__c createAvailabilitySchedule(Id dealId, Date theDate, String longForm) {
-        Schedules__c schedule1 = TestDataFactory.createSchedule(dealId, theDate, false);
-        schedule1.Long_Form__c = longForm;
-        schedule1.Status__c = 'Sold';
-        return schedule1;
-    }
-
-    private static Schedules__c createSoldSchedule(Id dealId, Date theDate, String longForm, Integer rate) {
-        Schedules__c schedule1 = TestDataFactory.createSchedule(dealId, theDate, false);
-        schedule1.Long_Form__c = longForm;
-        schedule1.Status__c = 'Sold';
-        schedule1.Rate__c = rate;
-        return schedule1;
-    }
-
-    private static Schedules__c getScheduleById(String scheduleId){
-        return [SELECT Id, Rate__c, Status__c
-                FROM Schedules__c
-                WHERE Id = :scheduleId
-                LIMIT 1];
-    }
-    
-
-    public static Contact createContact(Id accountId) {
-    
-        if (accountId == null) {
-            accountId = createAccount().Id;
+     
+    @isTest
+    static void testBAHeaders() {
+        ContentVersion document = [SELECT Id, VersionData FROM ContentVersion WHERE title = 'Buy Analysis' LIMIT 1];
+        List<String> CSVData = document.VersionData.toString().split('\n');
+        List<String> headers = CSVData[0].split(',');
+        system.debug(CSVData);
+        Map<String, Integer> idxMap = CSVUploadHelper.getBAIndexes(headers);
+        //check that all headers are there
+        try{ 
+            Integer rateIdx = idxMap.get('rateIdx');
+ 			Integer weekIdx = idxMap.get('weekIdx');
+ 			Integer phoneIdx = idxMap.get('phoneIdx');
+ 			Integer isciIdx = idxMap.get('isciIdx');
+ 			Integer longformIdx = idxMap.get('longformIdx');
+ 			Integer showTitleIdx = idxMap.get('showTitleIdx');
+        } catch(Exception e){
+            throw(e);
         }
-
-        Contact con = new Contact(
-                LastName = 'test',
-                Email = 'test@test.com',
-                Phone = '8001234567',
-                AccountId = accountId
-        );
-
-        insert con;
-        return con;
-    }
-
-
-
-    public static Account createAccount() {
-   
-        Account acct = new Account(
-                Name = 'Havas Edge'
-        );
-
-        insert acct;
-        return acct;
     }
     
-         
+    @isTest
+    static void testCheckHeaders() {
+        ContentVersion document = [SELECT Id, VersionData FROM ContentVersion WHERE title = 'Check CSV' LIMIT 1];
+        List<String> CSVData = document.VersionData.toString().split('\n');
+        List<String> headers = CSVData[0].split(',');
+
+        Map<String, Integer> idxMap = CSVUploadHelper.getCheckSheetIndexes(headers);
+        //check that all headers are there
+        try{ 
+			Integer airDateIdx = idxMap.get('airDateIdx');
+            Integer airTimeIdx = idxMap.get('airTimeIdx');
+            Integer adIdIdx = idxMap.get('adIdIdx');
+            Integer checkAmtIdx = idxMap.get('checkAmtIdx');
+            Integer checkDateIdx = idxMap.get('checkDateIdx');
+            Integer idIdx = idxMap.get('idIdx');
+            Integer dbtDateIdx = idxMap.get('dbtDateIdx');
+            Integer dbtChkIdx = idxMap.get('dbtChkIdx');
+            Integer stationIdx = idxMap.get('stationIdx');
+            Integer checkNumIdx = idxMap.get('checkNumIdx');   
+        } catch(Exception e){
+            throw(e);
+        }
+    }
+    
+    @isTest
+    static void testBAFormatter(){
+        ContentVersion document = [SELECT Id, VersionData FROM ContentVersion WHERE title = 'Buy Analysis' LIMIT 1];
+        List<String> CSVData = document.VersionData.toString().split('\n');
+        List<String> headers = CSVData[0].split(',');
+        Map<String, Integer> idxMap = CSVUploadHelper.getBAIndexes(headers);
+        List<String> cleanCSVData = CSVUploadHelper.cleanBlanks(CSVData);
+        Integer rateIdx = idxMap.get('rateIdx');
+        Integer weekIdx = idxMap.get('weekIdx');
+        Integer phoneIdx = idxMap.get('phoneIdx');
+        Integer isciIdx = idxMap.get('isciIdx');
+        Integer longformIdx = idxMap.get('longformIdx');
+        Integer showTitleIdx = idxMap.get('showTitleIdx'); 
+        String dealProgram = 'CourtTv Mystery PP';
+        Map<String, List<String>> CSVDataMap = CSVUploadHelper.BaCsvFormatCheck(cleanCSVData, rateIdx, weekIdx, phoneIdx, isciIdx, longformIdx, showTitleIdx, dealProgram); 
+    	System.assertEquals(1, CSVDataMap.keySet().size());
+    }
+    
+    @isTest
+    static void testCheckFormatter(){
+        ContentVersion document = [SELECT Id, VersionData FROM ContentVersion WHERE title = 'Check CSV' LIMIT 1];
+        List<String> CSVData = document.VersionData.toString().split('\n');
+        List<String> headers = CSVData[0].split(',');
+        Map<String, Integer> idxMap = CSVUploadHelper.getCheckSheetIndexes(headers);
+        List<String> cleanCSVData = CSVUploadHelper.cleanBlanks(CSVData);
+        Integer airDateIdx = idxMap.get('airDateIdx');
+        Integer airTimeIdx = idxMap.get('airTimeIdx');
+        Integer adIdIdx = idxMap.get('adIdIdx');
+        Integer checkAmtIdx = idxMap.get('checkAmtIdx');
+        Integer checkDateIdx = idxMap.get('checkDateIdx');
+        Integer idIdx = idxMap.get('idIdx');
+        Integer dbtDateIdx = idxMap.get('dbtDateIdx');
+        Integer dbtChkIdx = idxMap.get('dbtChkIdx');
+        Integer stationIdx = idxMap.get('stationIdx');
+        Integer checkNumIdx = idxMap.get('checkNumIdx');   
+        String dealProgram = 'CourtTv Mystery PP';
+        Map<String, List<List<String>>> csvDataMap = CSVUploadHelper.CheckSheetCsvFormatCheck(
+                cleanCSVData, 
+                airDateIdx, 
+                airTimeIdx, 
+                adIdIdx, 
+                checkNumIdx, 
+                checkAmtIdx, 
+                checkDateIdx, 
+                idIdx,
+                dbtDateIdx,
+                dbtChkIdx
+            ); 
+    	System.assertEquals(1, CSVDataMap.keySet().size());
+    }
+    
+    @isTest static void testBadDateBA() {
+      
+        ContentVersion document = [SELECT Id, VersionData FROM ContentVersion WHERE title = 'Bad Date' LIMIT 1];
+        List<String> CSVData = document.VersionData.toString().split('\n');
+        List<String> headers = CSVData[0].split(',');
+        Map<String, Integer> idxMap = CSVUploadHelper.getBAIndexes(headers);
+        List<String> cleanCSVData = CSVUploadHelper.cleanBlanks(CSVData);
+        Integer rateIdx = idxMap.get('rateIdx');
+        Integer weekIdx = idxMap.get('weekIdx');
+        Integer phoneIdx = idxMap.get('phoneIdx');
+        Integer isciIdx = idxMap.get('isciIdx');
+        Integer longformIdx = idxMap.get('longformIdx');
+        Integer showTitleIdx = idxMap.get('showTitleIdx'); 
+        String dealProgram = 'CourtTv Mystery PP';
+        String exceptionReason;
+        
+        try {
+        	Map<String, List<String>> CSVDataMap = CSVUploadHelper.BaCsvFormatCheck(cleanCSVData, rateIdx, weekIdx, phoneIdx, isciIdx, longformIdx, showTitleIdx, dealProgram);
+        }
+        catch (Exception e) {
+            exceptionReason = e.getMessage();
+            System.debug('exception: ');
+            System.debug(e);
+            System.debug(e.getMessage());
+        }
+        
+		system.assertEquals('The date is either incorrectly formatted or outside the acceptable date range.', exceptionReason, 'exceptions handled by class.');
+    }
+    
+        
+    @isTest static void testCommasBA() {
+       
+        ContentVersion document = [SELECT Id, VersionData FROM ContentVersion WHERE title = 'Commas' LIMIT 1];
+        List<String> CSVData = document.VersionData.toString().split('\n');
+        List<String> headers = CSVData[0].split(',');
+        Map<String, Integer> idxMap = CSVUploadHelper.getBAIndexes(headers);
+        List<String> cleanCSVData = CSVUploadHelper.cleanBlanks(CSVData);
+        Integer rateIdx = idxMap.get('rateIdx');
+        Integer weekIdx = idxMap.get('weekIdx');
+        Integer phoneIdx = idxMap.get('phoneIdx');
+        Integer isciIdx = idxMap.get('isciIdx');
+        Integer longformIdx = idxMap.get('longformIdx');
+        Integer showTitleIdx = idxMap.get('showTitleIdx'); 
+        String dealProgram = 'CourtTv Mystery PP';
+        String exceptionReason;
+        
+        try {
+        	Map<String, List<String>> CSVDataMap = CSVUploadHelper.BaCsvFormatCheck(cleanCSVData, rateIdx, weekIdx, phoneIdx, isciIdx, longformIdx, showTitleIdx, dealProgram);
+        }
+        catch (Exception e) {
+            exceptionReason = e.getMessage();
+            System.debug('exception: ');
+            System.debug(e);
+            System.debug(e.getMessage());
+        }
+        
+		system.assertEquals('Likely commas in cells.', exceptionReason, 'exceptions handled by class.');
+    }
+    
+    
 }
