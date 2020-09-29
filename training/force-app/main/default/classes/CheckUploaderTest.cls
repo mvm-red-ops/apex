@@ -35,6 +35,23 @@ public class CSVUploadHelperTest {
         );
         insert badDate;
         
+        
+        //create bad format2 week buy analysis
+        String strBadDate2 = 'Buyer,Show Title,Market,Station,Payee,Phone #,Day,Date,Time,Gross,PW Contact,ISCI #\n CH,KERANIQUE V119,DIGINET,MYSTERY,MARMYSTERY,800-460-7415,TU,5-1-20,3:00,1100,Brett LaFlamme,1003510197H';       
+        String[] csvFileLinesBadDate2;
+        Blob csvFileBodyBadDate2;        
+        
+        csvFileBodyBadDate2 = Blob.valueOf(strBadDate2);
+        String csvAsStringBadDate2 = csvFileBodyBadDate2.toString();
+        csvFileLinesBadDate2 = csvAsStringBadDate2.split('\n'); 
+        ContentVersion badDate2 = new ContentVersion(
+            Title = 'Bad Date2',
+            PathOnClient = 'Test.csv',
+            VersionData = csvFileBodyBadDate2,
+            IsMajorVersion = true
+        );
+        insert badDate2;
+        
                 
         //create commas in cell buy analysis
         String strCommas = 'Buyer,Show Title,Market,Station,Payee,Phone #,Day,Date,Time,Gross,PW Contact,ISCI #\n CH,KER,ANIQUE V119,DIGINET,MYSTERY,MARMYSTERY,800-460-7415,TU,2020/5/1,3:00,1100,Brett LaFlamme,1003510197H';       
@@ -70,6 +87,22 @@ public class CSVUploadHelperTest {
         );
         insert checkContentInsert;
         
+        
+        //create bad long form week buy analysis
+        String badLongForm = 'Buyer,Show Title,Market,Station,Payee,Phone #,Day,Date,Time,Gross,PW Contact,ISCI #\n CH,KERANIQUE V119,DIGINET,MYSTERY,MARMYSTERY,800-460-7415,TU,05/01/20,13:10,1100,Brett LaFlamme,1003510197H';       
+        String[] csvFileLinesBadLongForm;
+        Blob csvFileBodyBadLongForm;        
+        
+        csvFileBodyBadLongForm = Blob.valueOf(BadLongForm);
+        String csvAsStringBadLongForm = csvFileBodyBadLongForm.toString();
+        csvFileLinesBadLongForm = csvAsStringBadLongForm.split('\n'); 
+        ContentVersion BadLongFormContent = new ContentVersion(
+            Title = 'Bad Long Form',
+            PathOnClient = 'Test.csv',
+            VersionData = csvFileBodyBadLongForm,
+            IsMajorVersion = true
+        );
+        insert BadLongFormContent;
     }
      
     @isTest
@@ -196,10 +229,9 @@ public class CSVUploadHelperTest {
 		system.assertEquals('The date is either incorrectly formatted or outside the acceptable date range.', exceptionReason, 'exceptions handled by class.');
     }
     
-        
-    @isTest static void testCommasBA() {
-       
-        ContentVersion document = [SELECT Id, VersionData FROM ContentVersion WHERE title = 'Commas' LIMIT 1];
+    @isTest static void testBadDate2BA() {
+      
+        ContentVersion document = [SELECT Id, VersionData FROM ContentVersion WHERE title = 'Bad Date2' LIMIT 1];
         List<String> CSVData = document.VersionData.toString().split('\n');
         List<String> headers = CSVData[0].split(',');
         Map<String, Integer> idxMap = CSVUploadHelper.getBAIndexes(headers);
@@ -223,8 +255,113 @@ public class CSVUploadHelperTest {
             System.debug(e.getMessage());
         }
         
-		system.assertEquals('Likely commas in cells.', exceptionReason, 'exceptions handled by class.');
+		system.assertEquals('Date incorrectly formatted or commas in cells. Should be mm/dd/yyyy.', exceptionReason, 'exceptions handled by class.');
+    }   
+        
+    @isTest static void testCommasBA() {
+       
+        ContentVersion document = [SELECT Id, VersionData FROM ContentVersion WHERE title = 'Commas' LIMIT 1];
+        List<String> CSVData = document.VersionData.toString().split('\n');
+        List<String> headers = CSVData[0].split(',');
+        Map<String, Integer> idxMap = CSVUploadHelper.getBAIndexes(headers);
+        List<String> cleanCSVData = CSVUploadHelper.cleanBlanks(CSVData);
+        Integer rateIdx = idxMap.get('rateIdx');
+        Integer weekIdx = idxMap.get('weekIdx');
+        Integer phoneIdx = idxMap.get('phoneIdx');
+        Integer isciIdx = idxMap.get('isciIdx');
+        Integer longformIdx = idxMap.get('longformIdx');
+        Integer showTitleIdx = idxMap.get('showTitleIdx'); 
+        String dealProgram = 'CourtTv Mystery PP';
+        String exceptionReason;
+         
+        try {
+        	Map<String, List<String>> CSVDataMap = CSVUploadHelper.BaCsvFormatCheck(cleanCSVData, rateIdx, weekIdx, phoneIdx, isciIdx, longformIdx, showTitleIdx, dealProgram);
+        }
+        catch (Exception e) {
+            exceptionReason = e.getMessage();
+            System.debug('exception: ');
+            System.debug(e);
+            System.debug(e.getMessage());
+        }
+        
+		system.assertEquals('Date incorrectly formatted or commas in cells. Should be mm/dd/yyyy.', exceptionReason, 'exceptions handled by class.');
     }
     
+    
+    //long form 
+
+    @isTest static void testBadLongForm() {
+       
+        ContentVersion document = [SELECT Id, VersionData FROM ContentVersion WHERE title = 'Bad Long Form' LIMIT 1];
+        List<String> CSVData = document.VersionData.toString().split('\n');
+        List<String> headers = CSVData[0].split(',');
+        Map<String, Integer> idxMap = CSVUploadHelper.getBAIndexes(headers);
+        List<String> cleanCSVData = CSVUploadHelper.cleanBlanks(CSVData);
+        Integer rateIdx = idxMap.get('rateIdx');
+        Integer weekIdx = idxMap.get('weekIdx');
+        Integer phoneIdx = idxMap.get('phoneIdx');
+        Integer isciIdx = idxMap.get('isciIdx');
+        Integer longformIdx = idxMap.get('longformIdx');
+        Integer showTitleIdx = idxMap.get('showTitleIdx'); 
+        String dealProgram = 'CourtTv Mystery PP';
+        String exceptionReason;
+         
+        try {
+        	Map<String, List<String>> CSVDataMap = CSVUploadHelper.BaCsvFormatCheck(cleanCSVData, rateIdx, weekIdx, phoneIdx, isciIdx, longformIdx, showTitleIdx, dealProgram);
+        }
+        catch (Exception e) {
+            exceptionReason = e.getMessage();
+            System.debug('exception: ');
+            System.debug(e);
+            System.debug(e.getMessage());
+        }
+        
+		system.assertEquals('Unformattable longform/time field.', exceptionReason, 'exceptions handled by class.');
+    }
+    
+    
+    //final format check
+    @isTest static void testFinalFormattingCheck() {
+        String schedId = '123abc';
+       
+		Map<String, List<String>> fieldMap = new Map<String, List<String>>();
+        //make isci entry
+        List<String> isciList = new List<String>{'1234'};
+        fieldMap.put('isci', isciList);
+        
+        //make phone entry
+        List<String> phoneList = new List<String>{'123-4213'};
+        fieldMap.put('phone', phoneList);
+         
+        //make longform entry
+        List<String> lfList = new List<String>{'a-3:00'};
+        fieldMap.put('longform', lfList);
+                       
+        //make rate entry
+        List<String> rateList = new List<String>{'400'};
+        fieldMap.put('rate', rateList);
+                        
+        //make showtitle entry
+        List<String> showtitleList = new List<String>{'ABC show'};
+        fieldMap.put('showtitle', showtitleList);
+                        
+        //make week entry
+        List<String> weekList = new List<String>{'03/12/1993'};
+        fieldMap.put('week', weekList);
+                        
+        //make match entry
+        List<String> matchList = new List<String>{'true'};
+        fieldMap.put('matched', matchList);
+
+        Map<String, Map<String, List<String>>> test = new Map<String, Map<String, List<String>>>();
+        
+        test.put(schedId, fieldMap);
+        
+        List<Map<String, Map<String, List<String>>>> scheds = new List<Map<String, Map<String, List<String>>>>();
+        scheds.add(test);
+        
+        CSVUploadHelper.finalFormatCheck(scheds);
+                         
+    }
     
 }
