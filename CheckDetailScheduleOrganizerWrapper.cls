@@ -9,10 +9,6 @@ public class CheckDetailScheduleOrganizerWrapper {
     public List<CheckDetail__C> checkDetailsToInsert 				{ get; set; }
     public Map<Id, Decimal> schedulePayments						{ get; set; }
     public List<CheckDetail__C> unmatchedCheckDetailsMaster 		{ get; set; }
-    public List<CheckDetail__C> unmatchedCheckDetailsRate 			{ get; set; }
-    public List<CheckDetail__C> unmatchedCheckDetailsTraffic 		{ get; set; }
-    public List<CheckDetail__C> unmatchedCheckDetailsSchedule 		{ get; set; }
-    public List<CheckDetail__C> unmatchedCheckDetailsNoSchedule 	{ get; set; }
 
 }
 
