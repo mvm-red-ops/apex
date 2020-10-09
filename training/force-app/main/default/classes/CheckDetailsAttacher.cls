@@ -20,11 +20,8 @@ public class CheckDetailsAttacher {
 
         //Holds Check Detail objects did not have perfect match
         List<CheckDetail__C> unmatchedCheckDetailsMaster = new List<CheckDetail__C>();
-  		List<CheckDetail__C> unmatchedCheckDetailsRate = new List<CheckDetail__C>();
-  		List<CheckDetail__C> unmatchedCheckDetailsTraffic = new List<CheckDetail__C>();
-  		List<CheckDetail__C> unmatchedCheckDetailsSchedule = new List<CheckDetail__C>();
-  		List<CheckDetail__C> unmatchedCheckDetailsNoSchedule = new List<CheckDetail__C>();
 
+        //holds full schedule object
         Map<Id, Schedules__C> scheduleRecords = new Map<Id, Schedules__C>();
 
         //Buckets sorted by agency 
@@ -45,18 +42,15 @@ public class CheckDetailsAttacher {
         scheduleRecords = organizedScheduleWrapper.scheduleRecords;
 
         //sort and match check details
-        CheckDetailScheduleOrganizerWrapper sortedCheckDetails = sortCheckDetails(checkDetailsToInsert,schedulePayments,havasSchedMap, nonHavasSchedMap, unmatchedCheckDetailsMaster,unmatchedCheckDetailsRate,unmatchedCheckDetailsTraffic,unmatchedCheckDetailsSchedule, unmatchedCheckDetailsNoSchedule);
+        CheckDetailScheduleOrganizerWrapper sortedCheckDetails = sortCheckDetails(checkDetails, checkDetailsToInsert,schedulePayments,havasSchedMap, nonHavasSchedMap, unmatchedCheckDetailsMaster, unmatchedCheckSchedule);
         checkDetailsToInsert = sortedCheckDetails.checkDetailsToInsert;
         schedulePayments = sortedCheckDetails.schedulePayments;
         unmatchedCheckDetailsMaster = sortedCheckDetails.unmatchedCheckDetailsMaster;
-        unmatchedCheckDetailsRate = sortedCheckDetails.unmatchedCheckDetailsRate;
-        unmatchedCheckDetailsTraffic = sortedCheckDetails.unmatchedCheckDetailsTraffic;
-        unmatchedCheckDetailsSchedule = sortedCheckDetails.unmatchedCheckDetailsSchedule;
-        unmatchedCheckDetailsNoSchedule = sortedCheckDetails.unmatchedCheckDetailsNoSchedule;
+
 
 
         //update sum of check payments for each schedules
-        schedulesToUpdate =  updateSchedulePayments(schedulesToUpdate, scheduleIds, scheduleRecords);  
+        schedulesToUpdate =  updateSchedulePayments(schedulesToUpdate, scheduleIds, scheduleRecords, schedulePayments);  
 	    
         insert checkDetailsToInsert; 
         update schedulesToUpdate;
@@ -144,30 +138,28 @@ public class CheckDetailsAttacher {
 
 
     public static CheckDetailScheduleOrganizerWrapper sortCheckDetails(
+        List<CheckDetail__C> checkDetails,
         List<CheckDetail__C> checkDetailsToInsert,
         Map<Id, Decimal> schedulePayments,
         Map<String, List<Schedules__c>> havasSchedMap,
         Map<String, List<Schedules__c>> nonHavasSchedMap,
         List<CheckDetail__C> unmatchedCheckDetailsMaster,
-        List<CheckDetail__C> unmatchedCheckDetailsRate,
-        List<CheckDetail__C> unmatchedCheckDetailsTraffic,
-        List<CheckDetail__C> unmatchedCheckDetailsSchedule,
-        List<CheckDetail__C> unmatchedCheckDetailsNoSchedule
+        Schedules__C unmatchedCheckSchedule
     ){
         CheckDetailScheduleOrganizerWrapper result = new CheckDetailScheduleOrganizerWrapper();
-        Bolean isHavasSchedule;
-        Bolean isNonHavasSchedule;
+        Boolean isHavasSchedule;
+        Boolean isNonHavasSchedule;
         
         //iterate through check details
         For(Integer i = 0; i < checkDetails.size(); i++){
-
-            isHavasSchedule = havasSchedMap.containsKey(key);
-            isNonHavasSchedule = nonHavasSchedMap.containsKey(key);
 
             //get current check detail
             CheckDetail__c current = checkDetails[i];
             //create key
             String key = current.Air_Date__c + '-' + current.air_Time__C;
+            
+            isHavasSchedule = havasSchedMap.containsKey(key);
+            isNonHavasSchedule = nonHavasSchedMap.containsKey(key);
 
             //check if havas sched map contains key matching schedules
             if(isHavasSchedule){
@@ -204,13 +196,11 @@ public class CheckDetailsAttacher {
                     //check if the rate matches
                     if(sched.rate__c != Math.abs(current.check_Amount__C)){
                         current.Unmatched_Reason__C = 'Mismatch rate on Schedule ';
-                        unmatchedCheckDetailsRate.add(current);
                         unmatchedCheckDetailsMaster.add(current);
                     }
                     //check if the traffic matches
                     else if (sched.lf_traffic__c != null && sched.lf_traffic__c.trim() != current.Item_Ad_ID__c.trim()){
                         current.Unmatched_Reason__C = 'Mismatch traffic on Schedule ';
-						unmatchedCheckDetailsTraffic.add(current);
                         unmatchedCheckDetailsMaster.add(current);
                     } else {
                         //perfect match. associate the schedule and add to the update array
@@ -226,7 +216,6 @@ public class CheckDetailsAttacher {
                 current.Unmatched_Reason__C = 'Schedule only exists for Non-Havas DealAccount.';
                 current.Schedule__c = unmatchedCheckSchedule.id;
                 checkDetailsToInsert.add(current);
-                unmatchedCheckDetailsSchedule.add(current);
                 unmatchedCheckDetailsMaster.add(current);
                 
 
@@ -234,26 +223,21 @@ public class CheckDetailsAttacher {
                 current.Unmatched_Reason__c = 'No matching week/long form Schedule';
                 current.Schedule__c = unmatchedCheckSchedule.id;
                 checkDetailsToInsert.add(current);
-                unmatchedCheckDetailsNoSchedule.add(current);
                 unmatchedCheckDetailsMaster.add(current);
-
             }            
         }
 
         result.checkDetailsToInsert = checkDetailsToInsert;
         result.schedulePayments = schedulePayments;
         result.unmatchedCheckDetailsMaster = unmatchedCheckDetailsMaster;
-        result.unmatchedCheckDetailsRate = unmatchedCheckDetailsRate;
-        result.unmatchedCheckDetailsTraffic = unmatchedCheckDetailsTraffic;
-        result.unmatchedCheckDetailsSchedule = unmatchedCheckDetailsSchedule;
-        result.unmatchedCheckDetailsNoSchedule = unmatchedCheckDetailsNoSchedule;
         return result;
     }
 
     public static list<Schedules__C> updateSchedulePayments(
         List<Schedules__C> schedulesToUpdate, 
         Set<Id> scheduleIds, 
-        Map<Id, Schedules__C> scheduleRecords
+        Map<Id, Schedules__C> scheduleRecords,
+        Map<Id, Decimal> schedulePayments
     ){
         
          for(Id current : scheduleIds){
