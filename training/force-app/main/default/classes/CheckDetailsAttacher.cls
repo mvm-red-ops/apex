@@ -160,6 +160,11 @@ public class CheckDetailsAttacher {
             
             isHavasSchedule = havasSchedMap.containsKey(key);
             isNonHavasSchedule = nonHavasSchedMap.containsKey(key);
+            if(isHavasSchedule && isNonHavasSchedule){
+                AuraHandledException multipleMatches = new AuraHandledException('There is a match for both Havas and Non-Havas shcedules. There should only be one matching sold schedule with the key:' + key);
+                multipleMatches.setMessage('There is a match for both Havas and Non-Havas shcedules. There should only be one matching sold schedule with the key:' + key);
+                throw multipleMatches;    
+            }
 
             //check if havas sched map contains key matching schedules
             if(isHavasSchedule){
