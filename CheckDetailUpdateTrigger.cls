@@ -65,6 +65,7 @@ trigger CheckDetailUpdateTrigger on CheckDetail__c (before update, before delete
             //get id
             Id currId = cd.Id ;
             System.debug('current');
+            System.debug(cd);
             //Check detail sched parent 
             Schedules__C parent = schedMap.get(cd.Schedule__c);
             System.debug(parent);
@@ -72,9 +73,11 @@ trigger CheckDetailUpdateTrigger on CheckDetail__c (before update, before delete
 			if(parent.Sum_of_Check_Payments__c == null){
                 parent.Sum_of_Check_Payments__c = 0;
             }
-            
+            System.debug('check amount');
+            System.debug(cd.Check_Amount__c);
             //update schedule sum
             Decimal updatedSum = parent.Sum_of_Check_Payments__c - cd.Check_Amount__c;
+            System.debug('updated sum: ');
              System.debug(updatedSum);
             //update parent sum 
             parent.Sum_of_Check_Payments__c = updatedSum;

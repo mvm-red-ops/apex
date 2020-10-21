@@ -160,6 +160,8 @@ public class CheckDetailsAttacher {
             
             isHavasSchedule = havasSchedMap.containsKey(key);
             isNonHavasSchedule = nonHavasSchedMap.containsKey(key);
+
+            //check that only one match exists
             if(isHavasSchedule && isNonHavasSchedule){
                 AuraHandledException multipleMatches = new AuraHandledException('There is a match for both Havas and Non-Havas shcedules. There should only be one matching sold schedule with the key:' + key);
                 multipleMatches.setMessage('There is a match for both Havas and Non-Havas shcedules. There should only be one matching sold schedule with the key:' + key);
@@ -215,8 +217,7 @@ public class CheckDetailsAttacher {
                 }
 
                 
-
-                //below are the two conditions where no matching schedules was found (1. Only exists for non-havas accounts, 2. No schedule with matching week/longform)
+            //below are the two conditions where no matching schedules was found (1. Only exists for non-havas accounts, 2. No schedule with matching week/longform)
             } else if(isNonHavasSchedule){
                 current.Unmatched_Reason__C = 'Schedule only exists for Non-Havas DealAccount.';
                 current.Schedule__c = unmatchedCheckSchedule.id;
