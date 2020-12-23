@@ -30,7 +30,7 @@ public class PPTrafficUploaderTest {
             ContentVersion testDocId = [SELECT Id, VersionData FROM ContentVersion WHERE ContentDocumentId =:documents[0].id][0];
 
         	//create program, deal and schedule
-            Programs__c program = TestDataFactory.createProgram('CourtTv Mystery PP', true);
+            Programs__c program = TestDataFactory.createProgram('COURTTV Mystery PP', true);
             Deal__c deal1 = createAvailableDeal(program.Id);
         	Account testAcc = createAccount();
         	Contact testCon = createContact(testAcc.Id);
@@ -48,6 +48,62 @@ public class PPTrafficUploaderTest {
       		List<Map<String, Map<String, List<String>>>> results = PPTrafficUploader.readCSVFile(csvId, 'COURTTV Mystery PP');
 
 			//System.assertEquals(1, results.size());
+        Test.stopTest();
+        
+        //create test csv
+    }
+    @IsTest
+    static void testDoubleScheduleMatch() {
+        //need to create an existing schedule
+        //need to create a csv / schedule with different traffic, rate , isci and phone
+        //compare values of schedule after update
+       	Date schedDate = Date.parse('05/01/2020');
+        String longForm = 'A-3:00';
+        String longForm2 = 'A-3:30';
+        String str = 'Buyer,Show Title,Market,Station,Payee,Phone #,Day,Date,Time,Gross,PW Contact,ISCI #\n CH,KERANIQUE V119,DIGINET,MYSTERY,MARMYSTERY,800-460-7415,TU,5/1/20,3:00,100,Brett LaFlamme,1003510197H #\n CH,KERANIQUE V119,DIGINET,MYSTERY,MARMYSTERY,800-460-7415,TU,5/1/20,3:30,200,Brett LaFlamme,1003510197H';       
+        String[] csvFileLines;
+        Blob csvFileBody;
+        
+        Test.startTest();
+        	//create csv
+            csvFileBody = Blob.valueOf(str);
+            String csvAsString = csvFileBody.toString();
+            csvFileLines = csvAsString.split('\n'); 
+            ContentVersion contentVersionInsert = new ContentVersion(
+                    Title = 'CSV Test',
+                    PathOnClient = 'Test.csv',
+                    VersionData = csvFileBody,
+                    IsMajorVersion = true
+            );
+        	insert contentVersionInsert;
+
+            List<ContentDocument> documents = [SELECT Id, Title, LatestPublishedVersionId FROM ContentDocument];
+            Id csvId = documents[0].id;
+            ContentVersion testDocId = [SELECT Id, VersionData FROM ContentVersion WHERE ContentDocumentId =:documents[0].id][0];
+
+        	//create program, deal and schedule
+            Programs__c program = TestDataFactory.createProgram('COURTTV Mystery PP', true);
+            Deal__c deal1 = createAvailableDeal(program.Id);
+        	Account testAcc = createAccount();
+        	Contact testCon = createContact(testAcc.Id);
+            Schedules__c availabilitySchedule = createAvailabilitySchedule(deal1.Id, schedDate, longForm);
+            Schedules__c availabilitySchedule2 = createAvailabilitySchedule(deal1.Id, schedDate, longForm2);
+            insert availabilitySchedule;
+            insert availabilitySchedule2;
+            Deal__c deal2 = createAgencyDeal(program.Id);
+       		deal2.Contact__c = testCon.id;
+        	update deal2;
+       
+            Schedules__c soldSchedule = createSoldSchedule(deal2.Id, schedDate, longForm, 100);
+            Schedules__c soldSchedule2 = createSoldSchedule(deal2.Id, schedDate, longForm2, 200);
+            insert soldSchedule;
+            insert soldSchedule2;
+        	
+
+            //run check uploader  
+      		List<Map<String, Map<String, List<String>>>> results = PPTrafficUploader.readCSVFile(csvId, 'COURTTV Mystery PP');
+
+			System.assertEquals(2, results.size());
         Test.stopTest();
         
         //create test csv

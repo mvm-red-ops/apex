@@ -20,9 +20,9 @@ public with sharing class PPScheduleFinderHelperLWC {
                 List<String> split = curr[dateIdx].split('/');
                 DateTime cdate = Datetime.newInstance(Integer.valueOf(split[2]), Integer.valueOf(split[0]),Integer.valueOf(split[1]));
                 if(cdate <= today){
-                   // AuraHandledException pastSchedError = new AuraHandledException('Traffic can only be updated for future scheds. Check the CSV you are uplodaing for past schedules. Or contact Product Team.');
-                   // pastSchedError.setMessage('The sched you are trying to update is prior to today.');
-                	//throw pastSchedError;    
+                   AuraHandledException pastSchedError = new AuraHandledException('Traffic can only be updated for future scheds. Check the CSV you are uplodaing for past schedules. Or contact Product Team.');
+                   pastSchedError.setMessage('The sched you are trying to update is prior to today.');
+                	throw pastSchedError;    
                 }
                 if(cdate < startDate){
                     startDate = cdate;
@@ -42,29 +42,19 @@ public with sharing class PPScheduleFinderHelperLWC {
         String queryStartDate = startDate.format('yyyy-MM-dd');
         String queryEndDate =  endDate.format('yyyy-MM-dd');
 
-        System.debug('dates');
-        System.debug(queryStartDate);
-        System.debug(queryEndDate);
-        System.debug(dealProgram);
+      
           
         String query = 'SELECT Id, Week__c, LF_Daypart__c, Rate__c, Day_of_Week__c, LF_traffic__c, DealBrand__c,dealprogram__c, Long_Form__c, ISCI_CODE__c, X800_Number__c	 FROM Schedules__c WHERE dealprogram__c =\''+ String.escapeSingleQuotes(dealProgram) + '\'' + 
           ' AND DealBrand__c  !=\'' + String.escapeSingleQuotes('Availability')+ '\'' + ' AND Week__c >= ' + String.valueOf(queryStartDate) + ' AND week__c <= ' + String.valueOf(queryEndDate) +' AND DealAccount__c =\'' + String.escapeSingleQuotes('Havas Edge')+ '\'' +
           ' AND Status__c  =\'' + String.escapeSingleQuotes('Sold')+'\'' + ' ORDER BY Week__c ASC';
-		System.debug('query = ');
-		System.debug(query);
    			
 		Map<String, Schedules__c> sfMap = new Map<String, Schedules__c>();
 
         List<Schedules__c> scheds = Database.query(query);
         
-        System.debug('scheds');
-        System.debug(scheds);
-
         for(Integer i = 0; i < scheds.size(); i++){
             Schedules__c curr = scheds[i];
             String key = curr.Week__c + ' ' + curr.Long_Form__c + ' ' + curr.dealProgram__c;
-            System.debug('key for sf scheds');
-            System.debug(key);
             sfMap.put(key, curr);
         }
         

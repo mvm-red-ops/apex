@@ -10,5 +10,6 @@ public class CheckDetailScheduleOrganizerWrapper {
     public Map<Id, Decimal> schedulePayments						{ get; set; }
     public List<CheckDetail__C> unmatchedCheckDetailsMaster 		{ get; set; }
 
+
 }
 

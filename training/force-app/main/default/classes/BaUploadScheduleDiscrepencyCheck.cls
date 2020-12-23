@@ -17,6 +17,8 @@ public class BaUploadScheduleDiscrepencyCheck {
          
          Integer matchedCount = 0;
          Integer unmatchedCount = 0;
+         System.debug('key check!');
+
           for (String key : csvKeys) {
 
               	//sfMap formatted key
@@ -26,7 +28,9 @@ public class BaUploadScheduleDiscrepencyCheck {
               	String lForm = key.substring(10,17).trim();
               	String dProg = key.right(key.length() - 17).trim();
              	String sfKey = rDate + ' ' + lForm + ' ' + dProg;
-
+                System.debug(key);
+                System.debug(key.split('-'));
+                System.debug(key.split('-')[1]);
                 csvMap.get(key)[weekIdx] = rDate;
                   //formatted key
                   //2020-01-14 00:00:00 A-3:00  COURTTV Mystery PP

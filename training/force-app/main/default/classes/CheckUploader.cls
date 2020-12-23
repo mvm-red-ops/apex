@@ -32,6 +32,7 @@ public class CheckUploader {
             Date queryStart = Date.newInstance(2020, 4, 20);
             Date queryEnd = Date.newInstance(2020, 4, 21);
             String network = 'CourtTv Mystery PP';
+            String checkNumber;
             Date checkDate = null;
             
 			//perform index check
@@ -42,22 +43,25 @@ public class CheckUploader {
             adIdIdx = idxMap.get('adIdIdx');
             checkAmtIdx = idxMap.get('checkAmtIdx');
             checkDateIdx = idxMap.get('checkDateIdx');
+            checkNumIdx = idxMap.get('checkNumIdx');
             idIdx = idxMap.get('idIdx');
             dbtDateIdx = idxMap.get('dbtDateIdx');
             dbtChkIdx = idxMap.get('dbtChkIdx');
             stationIdx = idxMap.get('stationIdx');
-    
+    System.debug('indexes:');
+    System.debug(airDateIdx);
+    System.debug(airDateIdx);
      
             //filters blank rows
 		 	List<String> cleanCSVData = CSVUploadHelper.cleanBlanks(CSVData);
 
             
-            
+            System.debug('cleanCSVData');
+            System.debug(cleanCSVData);
             // to do figure out better way to get date
             // format 
 			Map<String, List<List<String>>> csvDataMap = new Map<String, List<List<String>>>();
-            System.debug('clean checks: ');
-            System.debug(cleanCSVData);
+
             CSVDataMap = CSVUploadHelper.CheckSheetCsvFormatCheck(
                 cleanCSVData, 
                 airDateIdx, 
@@ -71,30 +75,20 @@ public class CheckUploader {
                 dbtChkIdx
             ); 
             
-            System.debug('formatted all checks');
             
             for(String key : CSVDataMap.keyset()){
- 
                List<List<String>>  recordData = CSVDataMap.get(key);
-                System.debug('recordData');
-                System.debug(recordData);
-                System.debug(recordData[0]);
-                System.debug(recordData[0][checkDateIdx]);
                	checkDate = formatDate(recordData[0][checkDateIdx]);
-                
+                checkNumber = recordData[0][checkNumIdx];
                break;
             }
             
-    
-            
-            //create check 
-            	//check date
-            	//network (station)
-            	
+
+            //create and insert Check object
             Check__c check = new Check__c();
             check.Program__c = [select id from programs__c where name = :network].id;
             check.CheckDate__c = checkDate; 
-       
+            check.Check_Number__c = checkNumber;
             insert check;
             
             //create list of check details
@@ -103,38 +97,59 @@ public class CheckUploader {
             For(Integer i = 0; i < cleanCSVData.size(); i++){
                 List<String> current = cleanCSVData[i].split(',');
                 CheckDetail__C cd = new CheckDetail__c();
-                    System.debug('formatting air date...');
                 cd.Air_Date__c = formatDate(current[airDateIdx]);
-                	System.debug('check detail');
+
                 if(cd.Air_Date__c < queryStart){
                     queryStart = cd.Air_Date__c;
                 }
                 if(cd.Air_Date__c > queryEnd){
                     queryEnd = cd.Air_Date__c;
                 }
-                                	System.debug(cd);
-
-                cd.Check_Amount__c = Decimal.valueOf(current[checkAmtIdx]);
+				
+                cd.Check_Amount__c = formatRate(current[checkAmtIdx]);
                 cd.Item_Ad_ID__c = current[adIdIdx];
-                //fix air time
-                //should it be modeled after long form?
                 cd.Air_Time__c = convertAirTimeToLongForm(current[airTimeIdx]);
                 cd.Check__c = check.id;
-                cd.Check_Detail_Id__c = current[idIdx];
-                                	System.debug(cd);
+                cd.CheckId__c = current[idIdx];
 
                 String debitCheck = current[dbtChkIdx];
                 if(debitCheck.length() > 2){
                     cd.Debit_Check__c = current[dbtChkIdx];
-                    System.debug('formatting debit date...');
                     cd.Debit_Date__c = formatDate(current[dbtDateIdx]);
                 }
                 checkDetails.add(cd);
            }
 
             
-            //start attaching Check_Details__c to Schedules__C
-           results = CheckDetailsAttacher.attachCheckDetails(checkDetails, queryStart, queryEnd, network);            
+
+            //start Check Details attaching 
+            CheckDetailScheduleOrganizerWrapper processResults = CheckDetailsAttacher.attachCheckDetails(checkDetails, queryStart, queryEnd, network);            
+           
+            //create list for discrepant check details
+            List<CheckDetail__C> checkDetailsNeedTasks = new List<CheckDetail__C>();
+
+            //check if unmatched check detail has a schedule
+            //if so add it to checkDetailsNeedTasks
+            For(CheckDetail__C cd : processResults.unmatchedCheckDetailsMaster){
+                if(cd.Schedule__C != null){
+                    checkDetailsNeedTasks.add(cd);
+                }
+            }        
+            
+            //launch task creation class
+            CreateTasks taskCreator = new CreateTasks(processResults);
+            ID jobID = System.enqueueJob(taskCreator);
+      	    AsyncApexJob jobInfo = [SELECT Status,NumberOfErrors FROM AsyncApexJob WHERE Id=:jobID];
+            System.debug('jobInfo');
+            System.debug(jobInfo);
+
+            results = processResults.unmatchedCheckDetailsMaster;
+            //pass the unmatched check details to class that creates Tasks and sends email
+            //what do we need for each check detail?
+            //network, long form, week, rate, 
+            //schedule/inv# if we have it, 
+            //havas, contact(id, name, email) ,  
+            //planner for network (id, name, email)
         }
            return results;
 
@@ -236,6 +251,30 @@ public class CheckUploader {
                 throw ex; 
             }           
         return longform;
+    }
+    
+    private static Decimal formatRate(String rate){
+        Decimal dRate;
+        Boolean negative; 
+        rate = rate.trim();
+
+        //check for parentheses
+        if(rate.contains('(')){
+            rate = rate.substring(1, rate.length() - 1);
+            negative = true;
+        }
+       
+        //check for $ sign
+        if(rate.contains('$')){
+			dRate = Decimal.valueOf(rate.substring(1));
+        } else {
+			dRate = Decimal.valueOf(rate);
+        }        
+        
+        if(negative == true){
+            dRate = 0 - drate;
+        }
+        return dRate;
     }
     
     

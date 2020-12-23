@@ -53,8 +53,7 @@ public class CheckUploader {
 
             
             
-            // to do figure out better way to get date
-            // format 
+  
 			Map<String, List<List<String>>> csvDataMap = new Map<String, List<List<String>>>();
             System.debug('clean checks: ');
             System.debug(cleanCSVData);
@@ -73,6 +72,7 @@ public class CheckUploader {
             
             System.debug('formatted all checks');
             
+            //??
             for(String key : CSVDataMap.keyset()){
  
                List<List<String>>  recordData = CSVDataMap.get(key);
