@@ -49,14 +49,16 @@ public class CheckDetailsAttacher {
 
         //update sum of check payments for each schedules
         schedulesToUpdate =  updateSchedulePayments(schedulesToUpdate, scheduleIds, scheduleRecords, schedulePayments);  
-        List<CheckDetail__C> unmatchedTest = new List<CheckDetail__C>();
- 
+		
+        System.debug('schedulesToUpdate');
+        System.debug(schedulesToUpdate);
         
-        // queueableCheckDetailHandler = new CheckDetailQueue(checkDetailsToInsert, schedulesToUpdate);
+        CheckDetailQueue queueableCheckDetailHandler = new CheckDetailQueue(checkDetailsToInsert, schedulesToUpdate);
         
-        //ID jobID = System.enqueueJob(queueableCheckDetailHandler);
-      	//AsyncApexJob jobInfo = [SELECT Status,NumberOfErrors FROM AsyncApexJob WHERE Id=:jobID];
-	
+        ID jobID = System.enqueueJob(queueableCheckDetailHandler);
+      	AsyncApexJob jobInfo = [SELECT Status,NumberOfErrors FROM AsyncApexJob WHERE Id=:jobID];
+		System.debug('job info:');
+		System.debug(jobInfo);
 
         return sortedCheckDetails;
        //PROCESS END
@@ -79,13 +81,15 @@ public class CheckDetailsAttacher {
                 DealAccount__c,
                 Sum_of_Check_Payments__c,
                 rate__c,
-                Deal_Parent__r.Program__r.Lead__c
+                Deal_Parent__r.Program__r.Lead__c,
+                Deal_Parent__r.Program__r.Lead__r.email
                 FROM Schedules__c 
                 WHERE Week__c >= :startDate 
                 AND Week__c <= :endDate 
                 AND DealProgram__c = :network 
                 AND DealBrand__c != 'Availability'
-                ORDER BY Week__c ASC
+                AND Status__C = 'Sold'
+                FOR UPDATE
             ];
 
         return schedPool;
@@ -157,14 +161,11 @@ public class CheckDetailsAttacher {
 
             //get current check detail
             CheckDetail__c current = checkDetails[i];
+            
             //create key
             String key = current.Air_Date__c + '-' + current.air_Time__C;
-            //in order to check valid
-            // 
-                //havas vs non havas
-            //isValidAgency(key)
-            //
 
+            //havas vs non havas
             isHavasSchedule = havasSchedMap.containsKey(key);
             isNonHavasSchedule = nonHavasSchedMap.containsKey(key);
             
@@ -189,16 +190,19 @@ public class CheckDetailsAttacher {
                     throw keyFormatError;    
                 } else {
                     current.Schedule__c = sched.id;
+                    performAccounting(current, sched, schedulePayments);
 
                     //check if the rate does not match
                     if(sched.rate__c != Math.abs(current.check_Amount__C)){
-                        current.Unmatched_Reason__C = 'Mismatch rate on Schedule ';
+                        current.Unmatched_Reason__C = 'Mismatched rate on Schedule';
+                        current.unmatched__C = true;
                         unmatchedCheckDetailsMaster.add(current);
                         checkDetailsToInsert.add(current);
                     }
                     //check if the traffic matches
                     else if (sched.lf_traffic__c != null && sched.lf_traffic__c.trim() != current.Item_Ad_ID__c.trim()){
-                        current.Unmatched_Reason__C = 'Mismatch traffic on Schedule ';
+                        current.Unmatched_Reason__C = 'Mismatched traffic on Schedule';
+                        current.unmatched__C = true;
                         unmatchedCheckDetailsMaster.add(current);
                         checkDetailsToInsert.add(current);
 
@@ -206,7 +210,6 @@ public class CheckDetailsAttacher {
                         //perfect match. associate the schedule and add to the update array
                         current.unmatched__C = false;
                         checkDetailsToInsert.add(current);
-                        performAccounting(current, sched, schedulePayments);
                     }
                     
                 }
@@ -215,11 +218,13 @@ public class CheckDetailsAttacher {
                 //below are the two conditions where no matching schedules was found (1. Only exists for non-havas accounts, 2. No schedule with matching week/longform)
             } else if(isNonHavasSchedule){
                 current.Unmatched_Reason__C = 'Schedule only exists for Non-Havas DealAccount.';
+                current.unmatched__C = true;
                 checkDetailsToInsert.add(current);
                 unmatchedCheckDetailsMaster.add(current);
 
             } else {
                 current.Unmatched_Reason__c = 'No matching week/long form Schedule';
+               	current.unmatched__C = true;
                 checkDetailsToInsert.add(current);
                 unmatchedCheckDetailsMaster.add(current);
 
@@ -240,12 +245,17 @@ public class CheckDetailsAttacher {
         Map<Id, Decimal> schedulePayments
     ){
         //accounting logic
-        
-         for(Id current : scheduleIds){
+             System.debug('accounting..');
+
+         for(Id current : schedulePayments.keySet()){
                 Decimal paymentSum = schedulePayments.get(current);
                 Schedules__c sched = scheduleRecords.get(current);
                 sched.Sum_of_Check_Payments__c = paymentSum;
                 schedulesToUpdate.add(sched);
+             System.debug('paymentSum');
+             System.debug(paymentSum);
+             System.debug('sched');
+             System.debug(sched);
             }
 
         return schedulesToUpdate;
@@ -255,16 +265,16 @@ public class CheckDetailsAttacher {
     public static void performAccounting(CheckDetail__C current, Schedules__C sched, Map<Id, Decimal> schedulePayments ){
         //check if payment sum exists for current schedule, if it does update it
         if(schedulePayments.containsKey(sched.Id)){
-            Decimal currentPayment = current.Check_Amount__c;
+            Decimal currentPayment = current.Check_Amount__c * .85;
             Decimal schedPaymentSum = schedulePayments.get(sched.Id);
             Decimal updatedSum = currentPayment + schedPaymentSum;
             schedulePayments.put(sched.Id, updatedSum);
         } else {              
             if(sched.Sum_of_Check_Payments__c != null ){
-                Decimal newSum = sched.Sum_of_Check_Payments__c + current.Check_Amount__c;
+                Decimal newSum = sched.Sum_of_Check_Payments__c + (current.Check_Amount__c * .85);
                 schedulePayments.put(sched.Id, newSum);
             } else {
-                schedulePayments.put(sched.Id, current.Check_Amount__c);
+                schedulePayments.put(sched.Id, current.Check_Amount__c * .85);
             }
         }
     }
